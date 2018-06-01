@@ -196,9 +196,6 @@ def handle_rules_string():
 	return str_regex_status
 
 
-def return_to_core():
-	pass
-
 def substract_all_func():
 	'''
 	substract all functions from the global variable global_func_def, to be compatible 
@@ -422,6 +419,7 @@ def run(folder_name):
 	# print '##########################'
 	# print str_regex_status
 	# print '##########################'
+	print substract_all_func
 	Main_deal(substract_all_func(),indexes_2,str_regex_status)
 
 
@@ -430,7 +428,7 @@ if __name__ == '__main__':
 	write_rules()
 	load_rules()
 	#test()
-	for i in range(1,229):
+	for i in range(1,3):
 		if os.path.exists('./p_%s'%(str(i).rjust(3,'0'))):
 			run('./p_%s'%(str(i).rjust(3,'0')))
 			print "\n\n"

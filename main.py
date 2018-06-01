@@ -163,6 +163,10 @@ def str_regex(filename,regex_pattern):
 			tmp += "#"*15 +"\n"
 			tmp += filename + "\n"
 			tmp += "#"*15 + "\n"
+			tmp += str(i) + "\n"
+			tmp += "#"*15 + "\n"
+			tmp += search_m_func_api(i,filename) + "\n"
+			tmp += "#"*15 + "\n"
 			tmp += str(r.group()) + "\n"
 			tmp +=  "#"*15 + "\n"
 			print tmp
@@ -204,8 +208,18 @@ def substract_all_func():
 	global global_func_def
 	all_func = []
 	for filename in global_func_def:
-		for func in global_func_def[filename]:
-			all_func.append(func[1])
+		for i in range(len(global_func_def[filename])):
+			func = global_func_def[filename][i]
+			if func[1] in all_func:
+				print '[!] ' + func[1] + " is duplicated"
+				# if a function name is dumplicated, add append the filename to that function
+				all_func.append(func[1] + '@' + filename[2:])
+				# update the function name in the global_func_def as well
+				print global_func_def[filename][i]
+				global_func_def[filename][i][1] = func[1] + '@' + filename[2:]
+			else:
+				all_func.append(func[1])
+
 	all_func = list(set(all_func))
 	return all_func
 	
@@ -419,7 +433,9 @@ def run(folder_name):
 	# print '##########################'
 	# print str_regex_status
 	# print '##########################'
-	print substract_all_func
+	# print substract_all_func()
+	# print find_filename_by_func('main')
+	# print find_filename_by_func('main@p_001/symtab.c')
 	Main_deal(substract_all_func(),indexes_2,str_regex_status)
 
 
@@ -428,7 +444,7 @@ if __name__ == '__main__':
 	write_rules()
 	load_rules()
 	#test()
-	for i in range(1,3):
+	for i in range(1,2):
 		if os.path.exists('./p_%s'%(str(i).rjust(3,'0'))):
 			run('./p_%s'%(str(i).rjust(3,'0')))
 			print "\n\n"

@@ -215,7 +215,7 @@ def substract_all_func():
 				# if a function name is dumplicated, add append the filename to that function
 				all_func.append(func[1] + '@' + filename[2:])
 				# update the function name in the global_func_def as well
-				print global_func_def[filename][i]
+				#print global_func_def[filename][i]
 				global_func_def[filename][i][1] = func[1] + '@' + filename[2:]
 			else:
 				all_func.append(func[1])
@@ -342,7 +342,11 @@ def run_with_cflow(filename):
 			function_call[function_position]= function_name
 
 	function_def = sorted(function_def.items(),key = lambda x:int(x[0]))
-	function_call = sorted(function_call.items(),key = lambda x:int(x[0]))	
+	function_call = sorted(function_call.items(),key = lambda x:int(x[0]))
+
+	# transform the tuples to lists
+	function_def = map(list,function_def)
+	function_call = map(list,function_call)
 	debug_print(function_def)
 	debug_print(function_call)
 
@@ -444,7 +448,7 @@ if __name__ == '__main__':
 	write_rules()
 	load_rules()
 	#test()
-	for i in range(1,2):
+	for i in range(1,300):
 		if os.path.exists('./p_%s'%(str(i).rjust(3,'0'))):
 			run('./p_%s'%(str(i).rjust(3,'0')))
 			print "\n\n"

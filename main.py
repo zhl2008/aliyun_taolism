@@ -104,7 +104,15 @@ def Main_deal(funcs_list, sub_funcs, strs_dict):
 
 		res += "#############################\n"
 		print res
-		#open(record_file,'a').write(res)
+		open(record_file,'a').write(res)
+
+	# elegant record
+	# func = result[0]
+	# file_name = find_filename_by_func(func[0])
+	# elegant_res = ''
+	# seq = filename.split('/')[1]
+	# elegant_res += 
+	# open('my_result.txt','a').write()
 
 
 def debug_print(msg):
@@ -418,11 +426,11 @@ def run(folder_name):
 
 
 if __name__ == '__main__':
+	os.chdir('./runtime')
 	write_rules()
 	load_rules()
 	#test()
 	for i in range(1,229):
-
 		if os.path.exists('./p_%s'%(str(i).rjust(3,'0'))):
 			run('./p_%s'%(str(i).rjust(3,'0')))
 			print "\n\n"

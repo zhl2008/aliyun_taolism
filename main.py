@@ -129,7 +129,7 @@ def write_rules():
 "/tmp",
 "void\(\*\)\(\)",
 "(.*( |\"|\'|\/)(wget|curl|mail)( |\"|\').*)",
-"((.*([0-9]{1,3}\.){3}[0-9]{1,3}.*)|(.*[\"].*([\w]+\.)+[\w]{2,3}[\"| .*\"|;.*\"].*)|(.*[\'].*([\w]+\.)+[\w]{2,3}[\'| .*\'|;.*\'].*))",
+"(.*([0-9]{1,3}\.){3}[0-9]{1,3}.*)",
 "((((?:_POST|_GET|_REQUEST|GLOBALS)\[(?:.*?)\]\(\$(?:_POST|_GET|_REQUEST|GLOBALS)))|(((?:exec|base64_decode|edoced_46esab|eval|eval_r|system|proc_open|popen|curl_exec|curl_multi_exec|parse_ini_file|show_source|assert)\s*?\(\$(?:_POST|_GET|_REQUEST|GLOBALS)))|(((?:eval|eval_r|execute|ExecuteGlobal)\s*?\(?request))|((write|exec)\(request\.getParameter)|(((?:eval|eval_r|execute|ExecuteGlobal).*?request))|(SaveAs\(\s*?Server\.MapPath\(\s*?Request))",
 "(.*(disable_dynamic|AddType|x-httpd-php).*)",
 "(.*(( |\"|\'|\/)evil|( |\"|\'|\/|@)eval|shellcode|HTTP/1\.[1|0]|\* \* \*|( |\"|\'|\/)grep).*)",
@@ -157,7 +157,8 @@ def str_regex(filename,regex_pattern):
 		r = re.search(regex_pattern,line_content)
 		if r:
 			# line number starts from 1
-			tmp = "\n"
+			# tmp = "\n"
+			tmp = ""
 			tmp += "#"*15 +"\n"
 			tmp +=  str(regex_pattern) +"\n"
 			tmp += "#"*15 +"\n"
@@ -168,10 +169,11 @@ def str_regex(filename,regex_pattern):
 			tmp += search_m_func_api(i,filename) + "\n"
 			tmp += "#"*15 + "\n"
 			tmp += str(r.group()) + "\n"
-			tmp +=  "#"*15 + "\n"
+			tmp +=  "#"*15 + "\n\n"
 			print tmp
 			open('log.txt','a').write(tmp)
 			match_lines.append(i+1)
+
 	return match_lines
 
 
@@ -197,6 +199,7 @@ def handle_rules_string():
 	# print "#"*15
 	# print str_regex_status
 	# print "#"*15
+	open('log.txt','a').write('\n')
 	return str_regex_status
 
 
@@ -429,7 +432,7 @@ def run(folder_name):
 		indexes_2 = json.loads(open(cache_path_reverse).read())
 		debug_print(indexes_2)
 
-	str_regex_status = handle_rules_string()
+	
 	# print '##########################'
 	# print substract_all_func()
 	# print '##########################'
@@ -440,6 +443,11 @@ def run(folder_name):
 	# print substract_all_func()
 	# print find_filename_by_func('main')
 	# print find_filename_by_func('main@p_001/symtab.c')
+
+	'''
+	real handle here
+	'''
+	str_regex_status = handle_rules_string()
 	Main_deal(substract_all_func(),indexes_2,str_regex_status)
 
 
@@ -448,7 +456,7 @@ if __name__ == '__main__':
 	write_rules()
 	load_rules()
 	#test()
-	for i in range(1,300):
+	for i in range(0,1):
 		if os.path.exists('./p_%s'%(str(i).rjust(3,'0'))):
 			run('./p_%s'%(str(i).rjust(3,'0')))
 			print "\n\n"

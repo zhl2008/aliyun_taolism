@@ -7,15 +7,15 @@ import os
 
 
 def check_path(filepath):
-	if os.path.exists(filepath):
+	if os.path.exists('./runtime/'+filepath):
 		return True
 	sys.exit('[!] filepath:%s not exists'%filepath)
 
-wb = load_workbook("test5.xlsx")
+wb = load_workbook("5.xlsx")
 print(wb.sheetnames)
-sheet_lee = wb.get_sheet_by_name("0")
-sheet_ins = wb.get_sheet_by_name("1")
-sheet_haozi = wb.get_sheet_by_name("2")
+sheet_lee = wb.get_sheet_by_name("1")
+sheet_ins = wb.get_sheet_by_name("2")
+sheet_haozi = wb.get_sheet_by_name("3")
 
 sheets = [sheet_lee,sheet_ins,sheet_haozi]
 

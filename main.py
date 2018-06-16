@@ -91,6 +91,13 @@ def Main_deal(funcs_list, sub_funcs, strs_dict):
 
 	result = sorted(F.items(),key=lambda x:int(x[1]),reverse=True)[0:3]
 
+	# record the highest func to the submit
+	highest_func = result[0][0]
+	highest_file_name = find_filename_by_func(highest_func)
+	highest_project_name = highest_file_name.split('/')[1]
+	tmp_res = highest_project_name + ',' + 'yes' + ',' + highest_file_name + ',' + highest_func + "\n"
+	open('submit_tmp.txt','a').write(tmp_res)
+
 	for func in result:
 		file_name = find_filename_by_func(func[0])
 		res = ''
@@ -458,6 +465,9 @@ if __name__ == '__main__':
 	#test()
 	for i in range(0,1):
 		if os.path.exists('./p_%s'%(str(i).rjust(3,'0'))):
+			run('./p_%s'%(str(i).rjust(3,'0')))
+			print "\n\n"
+		if os.path.exists('./mp_%s'%(str(i).rjust(3,'0'))):
 			run('./p_%s'%(str(i).rjust(3,'0')))
 			print "\n\n"
 			

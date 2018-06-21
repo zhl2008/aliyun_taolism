@@ -4,6 +4,7 @@ import os
 import sys
 import json
 import re
+from copy import deepcopy
 
 
 '''
@@ -35,6 +36,11 @@ scores = {}
 global_func_def = {}
 record_file = 'res'
 
+a = open('runtime/res_2.txt').readlines()
+a = map(lambda x:x[2].strip() + '@' + './' + x[1] if x[1] else '', [x.split(',') for x in a])
+while '' in a:
+	a.remove('')
+malicious_funcs = a
 
 #######    config  ends     #######
 
@@ -64,7 +70,7 @@ def Deal_funcs(sub_funcs):
 	Mod_funcs = [["read", "fread", "fgetc", "fgets"],
 	["write","fwrite", "fputc", "fputs", "fprintf"],
 	["tcgetattr"],
-	["send", "recv"],
+	["send", "recv","connect"],
 	["popen","system","exec","execl","execv","execve","execlp","execle","execvp"],
 	["ftruncate", "chmod"]]
 
@@ -95,14 +101,35 @@ def Main_deal(funcs_list, sub_funcs, strs_dict):
 	highest_func = result[0][0]
 	highest_file_name = find_filename_by_func(highest_func)
 	highest_project_name = highest_file_name.split('/')[1]
-	tmp_res = highest_project_name + ',' + 'yes' + ',' + highest_file_name + ',' + highest_func + "\n"
+
+	tmp_res = highest_project_name + ':' + 'yes' + ',' + highest_file_name[2:] + ',' + highest_func.split('@')[0] + "\n"
 	open('submit_tmp.txt','a').write(tmp_res)
+
+
+	for func in funcs_list:
+		# to prevent the func_state from being modified while 
+		# we modify my_state
+		my_state = deepcopy(func_state[func])
+		if strs_dict.has_key(func):
+			my_state += strs_dict[func]
+		else:
+			# no malicious string detected
+			my_state += [0 for i in range(len(str_rules))]
+
+		my_state = map(str,my_state)
+		file_name = find_filename_by_func(func)
+		project_name = file_name.split('/')[1]
+		tmp_res = project_name + ',' + func.split('@')[1][2:] + ',' + func.split('@')[0] + ',' + ','.join(my_state)
+		open('func_status.txt','a').write(tmp_res + "\n")
+
+		if func in malicious_funcs:
+			open('malicious.txt','a').write(tmp_res + "\n")
 
 	for func in result:
 		file_name = find_filename_by_func(func[0])
 		res = ''
 		res += "File_name :%s\n" % file_name
-		res += "Func name :%s\n" % func[0]
+		res += "Func name :%s\n" % func[0].split('@')[0]
 		res += "Score:%s\n" % func[1]
 		if func_state.has_key(func[0]):
 			res += "Func state :%s\n" % func_state[func[0]]
@@ -199,10 +226,11 @@ def handle_rules_string():
 			match_lines = str_regex(filename,rule)
 			for line in match_lines:
 				function_name = search_m_func_api(line,filename)
-				#print filename,line,function_name
-				if not str_regex_status.has_key(function_name):
-					str_regex_status[function_name] = [0] * len(str_rules)
-				str_regex_status[function_name][i] = 1
+				real_func_name = function_name + '@' + filename
+
+				if not str_regex_status.has_key(real_func_name):
+					str_regex_status[real_func_name] = [0] * len(str_rules)
+				str_regex_status[real_func_name][i] = 1
 	# print "#"*15
 	# print str_regex_status
 	# print "#"*15
@@ -212,23 +240,22 @@ def handle_rules_string():
 
 def substract_all_func():
 	'''
-	substract all functions from the global variable global_func_def, to be compatible 
-	to the code written by leecraso
+	substract all functions from the global variable global_func_def
 	'''
 	global global_func_def
 	all_func = []
 	for filename in global_func_def:
 		for i in range(len(global_func_def[filename])):
 			func = global_func_def[filename][i]
-			if func[1] in all_func:
-				print '[!] ' + func[1] + " is duplicated"
-				# if a function name is dumplicated, add append the filename to that function
-				all_func.append(func[1] + '@' + filename[2:])
-				# update the function name in the global_func_def as well
-				#print global_func_def[filename][i]
-				global_func_def[filename][i][1] = func[1] + '@' + filename[2:]
-			else:
-				all_func.append(func[1])
+			# if func[1] in all_func:
+			# 	print '[!] ' + func[1] + " is duplicated"
+			# 	# if a function name is dumplicated, add append the filename to that function
+			# 	all_func.append(func[1] + '@' + filename[2:])
+			# 	# update the function name in the global_func_def as well
+			# 	#print global_func_def[filename][i]
+			# 	global_func_def[filename][i][1] = func[1] + '@' + filename[2:]
+			# else:
+			all_func.append(func[1] + '@' + filename)
 
 	all_func = list(set(all_func))
 	return all_func
@@ -288,23 +315,25 @@ def search_m_func_api(line,filename):
 	return search_m_func(function_def,line)
 
 def find_filename_by_func(function_name):
-	for filename in global_func_def:
-		for data in global_func_def[filename]:
-			if data[1] == function_name:
-				return filename
+	real_func_name,real_file_name = function_name.split('@')
+	#for filename in global_func_def:
+	for data in global_func_def[real_file_name]:
+		if data[1] == real_func_name:
+			return real_file_name
 	return "no_such_function"
 
 def reverse_indexes():
 	'''
-	indexes_2 = {'_aa':['popen','system']}
+	indexes_2 = {'func_name@file_name':['popen','system']}
 	'''
 	indexes_2 = {}
 	global indexes
 	for index in indexes:
 		for record in indexes[index]:
-			if not indexes_2.has_key(record['m_func']):
-				indexes_2[record['m_func']] = []
-			indexes_2[record['m_func']].append(index)
+			final_func_name = record['m_func'] + '@' + record['filename']
+			if not indexes_2.has_key(final_func_name):
+				indexes_2[final_func_name] = []
+			indexes_2[final_func_name].append(index)
 
 	# remove the duplicate function
 	for index in indexes_2:
@@ -319,7 +348,7 @@ def replace_static(filename):
 	this function is used to fix somebug in cflow, when it try to parse the static function,
 	just replace the 'static ' to null
 	'''
-	content = open(filename).read().replace('static ','')
+	content = open(filename).read().replace('static ','').replace("static\n",'')
 	open(filename,'w').write(content)
 
 
@@ -375,24 +404,8 @@ def run_with_cflow(filename):
 			indexes[function_name] = []
 		indexes[function_name].append(function_info)
 
-	#print '############'
-	#print indexes
-	#print '############'
 
 	global_func_def[filename] = function_def
-	#debug_print(indexes)
-	#debug_print(res)
-
-
-def test():
-
-	list_c_files('../p_56')
-	run_with_cflow('../p_56/example.c')
-	run('../p_56')
-	find_filename_by_func('_ddc88cd9fb57f544dde77d08bd39e6ee')
-	print substract_all_func()
-	print str_regex('../p_56/example.c','include')
-	exit()
 
 
 
@@ -409,14 +422,16 @@ def run(folder_name):
 	indexes_2 = {}
 	global_func_def = {}
 
-
-
 	if not os.path.exists('cache'):
 		os.system('mkdir cache')
 
 	cache_path = 'cache/%s' % folder_name.replace('.','').replace('/','')
 	cache_path_reverse =  cache_path + '_re'
 	global_def_path = cache_path + '_func_def' 
+
+	'''
+		the records of all the functions, including fuction name/ mother function/function position
+	'''
 
 	if not os.path.exists(cache_path):
 		filenames = list_c_files(folder_name)
@@ -430,7 +445,11 @@ def run(folder_name):
 		global_func_def = json.loads(open(global_def_path).read())	
 		debug_print(indexes)
 
-	# print indexes
+
+	'''
+		the records of subfunctions for each function, if exists already,
+		then load from file
+	'''
 	if not os.path.exists(cache_path_reverse):
 		indexes_2 = reverse_indexes()
 		open(cache_path_reverse,'w').write(json.dumps(indexes_2))
@@ -438,18 +457,6 @@ def run(folder_name):
 		debug_print('[*] loading from old reverse cache')
 		indexes_2 = json.loads(open(cache_path_reverse).read())
 		debug_print(indexes_2)
-
-	
-	# print '##########################'
-	# print substract_all_func()
-	# print '##########################'
-	# print indexes_2
-	# print '##########################'
-	# print str_regex_status
-	# print '##########################'
-	# print substract_all_func()
-	# print find_filename_by_func('main')
-	# print find_filename_by_func('main@p_001/symtab.c')
 
 	'''
 	real handle here
@@ -463,7 +470,7 @@ if __name__ == '__main__':
 	write_rules()
 	load_rules()
 	#test()
-	for i in range(0,1):
+	for i in range(0,300):
 		if os.path.exists('./p_%s'%(str(i).rjust(3,'0'))):
 			run('./p_%s'%(str(i).rjust(3,'0')))
 			print "\n\n"

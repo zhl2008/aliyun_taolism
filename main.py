@@ -5,6 +5,7 @@ import sys
 import json
 import re
 from copy import deepcopy
+from hashlib import md5
 
 
 '''
@@ -290,6 +291,7 @@ def search_m_func(function_def,line):
 	last_function_name = 'this_is_error'
 	for func in function_def:
 		function_position,function_name = func
+		function_position = function_position.split('@')[0]
 		function_position = int(function_position)
 		line = int(line)
 		if function_position == line:
@@ -371,48 +373,104 @@ def run_with_cflow(filename):
 	function_call = {}
 	replace_static(filename)
 
-	cmd = 'cflow --include _ -x ' + filename
-	res = os.popen(cmd).read()
-	res = res.strip().split('\n')
+	# clean old redefined record
+	open('/tmp/redefined','w').write('')
 
+	cmd = 'cflow --include _ -x ' + filename + ' 2>/tmp/redefined'
+	res = os.popen(cmd).read()
+
+	my_redefined = open('/tmp/redefined').read().split('\n')
+	
+	res = res.strip().split('\n')
+	res += my_redefined
+
+	i = -1
 	for record in res:
+		i += 1
 		if '*' in record:
 			tmp = record.split(' ')
 			function_name,function_position = tmp[0],tmp[2].split(':')[1]
+			function_position = str(function_position) + '@' + md5(function_name).hexdigest()[8:24]
 			function_def[function_position]= function_name
 			function_call[function_position]= function_name
-		elif record:
-			
+
+		elif ' redefined' not in record and 'cflow:' not in record and  'missing ' not in record and record:
+
 			tmp = record.split(' ')
 			function_name,function_position = tmp[0],tmp[3].split(':')[1]
-			if filename == './p_170/src/pstree.c':
-				print function_name,function_position
-			function_call[function_position]= function_name
-	print filename
-	
-	
-	function_def = sorted(function_def.items(),key = lambda x:int(x[0]))
-	function_call = sorted(function_call.items(),key = lambda x:int(x[0]))
 
+			# different function could be called in one line, so use function hash here
+			function_position = str(function_position) + '@' + md5(function_name).hexdigest()[8:24] 
+
+			function_call[function_position]= function_name
+		elif 'redefined' in record:
+			'''
+				redefined function detected, update the position of the 
+				function definition to the original one( this is boiled
+				down to the usage of #if #else)
+			'''
+		
+			tmp =  record.split(' ')
+			tmp_2 = res[i+1].split(':')
+
+			# the next data should not be handled again
+			del res[i]
+
+			old_function_position = tmp[0].split(':')[2]
+			function_name,function_position = tmp[1].split('/')[0],tmp_2[2]
+			
+
+			function_position = str(function_position) + '@' + md5(function_name).hexdigest()[8:24]
+			old_function_position = str(old_function_position) + '@' + md5(function_name).hexdigest()[8:24]
+
+			'''
+				delete the duplicate definition of one function
+			'''
+			if function_call.has_key(old_function_position):
+				del function_call[old_function_position]
+				del function_def[old_function_position]
+				function_call[function_position] = function_name
+				function_def[function_position]= function_name
+
+			# if 'names' in filename:
+			# 	print function_call
+			#  	sys.exit()
+			print 'redefined detected'
+		elif record:
+			print "unknown error: " + record
+	
+		
+	
+	function_def = sorted(function_def.items(),key = lambda x:int(x[0].split('@')[0]))
+	function_call = sorted(function_call.items(),key = lambda x:int(x[0].split('@')[0]))
+
+	
 	# transform the tuples to lists
 	function_def = map(list,function_def)
 	function_call = map(list,function_call)
 	debug_print(function_def)
 	debug_print(function_call)
 
-
-
+	# if 'pstree' in filename:
+	# 		print function_def
+	# 		sys.exit()
 	for func in function_call:
 		function_position,function_name = func
+		function_position = function_position.split('@')[0]
 		file_content = open(filename).readlines()
 		offset_1 = (int(function_position) - int(content_offset)) if (int(function_position) - int(content_offset)) > 0  else 0
 		offset_2 = int(function_position) + int(content_offset)
 		content = file_content[offset_1:offset_2]
+		# if function_name == 'getlogin' and 'pstree.c' in filename:
+		# 	print 'ok'
+		# 	sys.exit()
 
 		m_func = search_m_func(function_def,function_position)
-		function_info = {'filename':filename,'line':int(function_position),'m_func':m_func,}#'content':content}
+		function_info = {'filename':filename,'line':int(function_position),'m_func':m_func,}
+
 		if not indexes.has_key(function_name):
 			indexes[function_name] = []
+
 		indexes[function_name].append(function_info)
 
 
@@ -482,7 +540,7 @@ if __name__ == '__main__':
 	write_rules()
 	load_rules()
 	#test()
-	for i in range(170,171):
+	for i in range(58,59):
 		if os.path.exists('./p_%s'%(str(i).rjust(3,'0'))):
 			run('./p_%s'%(str(i).rjust(3,'0')))
 			print "\n\n"

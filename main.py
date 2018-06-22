@@ -68,7 +68,8 @@ def Cacu_value(func_state,strs_state):
 
 def Deal_funcs(sub_funcs):
 
-	Mod_funcs = [["read", "fread", "fgetc", "fgets","open","fopen"],
+	global func_rules
+	func_rules = [["read", "fread", "fgetc", "fgets","open","fopen"],
 	["write","fwrite", "fputc", "fputs", "fprintf","fscanf","sprintf"],
 	["tcgetattr"],
 	["send", "recv","connect","bind","socket","gethostbyname","recvfrom","inet_addr"],
@@ -78,10 +79,10 @@ def Deal_funcs(sub_funcs):
 	["ioctl"]
 	]
 
-	func_state=[0 for i in xrange(0,len(Mod_funcs))]
+	func_state=[0 for i in xrange(0,len(func_rules))]
 
-	for i in xrange(0,len(Mod_funcs)):
-		if len(set(Mod_funcs[i])&set(sub_funcs))>0:
+	for i in xrange(0,len(func_rules)):
+		if len(set(func_rules[i])&set(sub_funcs))>0:
 			func_state[i] = 1
 
 	return func_state
@@ -94,10 +95,13 @@ def Main_deal(funcs_list, sub_funcs, strs_dict):
 		#print funcs
 		if (sub_funcs.has_key(funcs)):
 			func_state[funcs] = Deal_funcs(sub_funcs[funcs])
-			if (strs_dict.has_key(funcs)):
-				F[funcs] = Cacu_value(func_state[funcs],strs_dict[funcs])
-			else:
-				F[funcs] = Cacu_value(func_state[funcs],[0 for i in xrange(len(str_rules))])
+		else:
+			func_state[funcs] = [0 for i in xrange(0,len(func_rules))]
+
+		if (strs_dict.has_key(funcs)):
+			F[funcs] = Cacu_value(func_state[funcs],strs_dict[funcs])
+		else:
+			F[funcs] = Cacu_value(func_state[funcs],[0 for i in xrange(len(str_rules))])
 
 	result = sorted(F.items(),key=lambda x:int(x[1]),reverse=True)[0:3]
 
@@ -108,6 +112,11 @@ def Main_deal(funcs_list, sub_funcs, strs_dict):
 
 	tmp_res = highest_project_name + ':' + 'yes' + ',' + highest_file_name[2:] + ',' + highest_func.split('@')[0] + "\n"
 	open('submit_tmp.txt','a').write(tmp_res)
+
+	# print func_state
+	# print 'closedir@./p_058/src/readdir.c' in sub_funcs
+	# print 'closedir@./p_058/src/readdir.c' in funcs_list 
+	# print sub_funcs
 
 
 	for func in funcs_list:
@@ -528,6 +537,10 @@ def run(folder_name):
 		indexes_2 = json.loads(open(cache_path_reverse).read())
 		debug_print(indexes_2)
 
+	# print indexes
+	# print 'closedir@./p_058/src/readdir.c' in indexes_2
+	# sys.exit()
+
 	'''
 	real handle here
 	'''
@@ -540,7 +553,7 @@ if __name__ == '__main__':
 	write_rules()
 	load_rules()
 	#test()
-	for i in range(58,59):
+	for i in range(0,300):
 		if os.path.exists('./p_%s'%(str(i).rjust(3,'0'))):
 			run('./p_%s'%(str(i).rjust(3,'0')))
 			print "\n\n"

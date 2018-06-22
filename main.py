@@ -67,12 +67,15 @@ def Cacu_value(func_state,strs_state):
 
 def Deal_funcs(sub_funcs):
 
-	Mod_funcs = [["read", "fread", "fgetc", "fgets"],
-	["write","fwrite", "fputc", "fputs", "fprintf"],
+	Mod_funcs = [["read", "fread", "fgetc", "fgets","open","fopen"],
+	["write","fwrite", "fputc", "fputs", "fprintf","fscanf","sprintf"],
 	["tcgetattr"],
-	["send", "recv","connect"],
+	["send", "recv","connect","bind","socket","gethostbyname","recvfrom","inet_addr"],
 	["popen","system","exec","execl","execv","execve","execlp","execle","execvp"],
-	["ftruncate", "chmod"]]
+	["ftruncate", "chmod"],
+	["ptrace","get_nprocs","opendir","readdir","lstat","getifaddrs","getlogin","getpwent","getuid","rename","getcwd","getenv"],
+	["ioctl"]
+	]
 
 	func_state=[0 for i in xrange(0,len(Mod_funcs))]
 
@@ -93,7 +96,7 @@ def Main_deal(funcs_list, sub_funcs, strs_dict):
 			if (strs_dict.has_key(funcs)):
 				F[funcs] = Cacu_value(func_state[funcs],strs_dict[funcs])
 			else:
-				F[funcs] = Cacu_value(func_state[funcs],[0 for i in xrange(11)])
+				F[funcs] = Cacu_value(func_state[funcs],[0 for i in xrange(len(str_rules))])
 
 	result = sorted(F.items(),key=lambda x:int(x[1]),reverse=True)[0:3]
 
@@ -158,17 +161,20 @@ def write_rules():
 	write the test rules to files
 	'''
 	global str_rules,func_rules
-	str_rules = ["(.*/(etc|usr|var|proc|dev).*)",
-"(.*(\.bash_history|\.bashrc|\.ssh|authorized_keys|rc\.d|cron\.d|\.conf|passwd).*)",
-"/tmp",
-"void\(\*\)\(\)",
-"(.*( |\"|\'|\/)(wget|curl|mail)( |\"|\').*)",
-"(.*([0-9]{1,3}\.){3}[0-9]{1,3}.*)",
-"((((?:_POST|_GET|_REQUEST|GLOBALS)\[(?:.*?)\]\(\$(?:_POST|_GET|_REQUEST|GLOBALS)))|(((?:exec|base64_decode|edoced_46esab|eval|eval_r|system|proc_open|popen|curl_exec|curl_multi_exec|parse_ini_file|show_source|assert)\s*?\(\$(?:_POST|_GET|_REQUEST|GLOBALS)))|(((?:eval|eval_r|execute|ExecuteGlobal)\s*?\(?request))|((write|exec)\(request\.getParameter)|(((?:eval|eval_r|execute|ExecuteGlobal).*?request))|(SaveAs\(\s*?Server\.MapPath\(\s*?Request))",
-"(.*(disable_dynamic|AddType|x-httpd-php).*)",
-"(.*(( |\"|\'|\/)evil|( |\"|\'|\/|@)eval|shellcode|HTTP/1\.[1|0]|\* \* \*|( |\"|\'|\/)grep).*)",
-"(#define\s*.*\s*(popen|system|exec|execl|execv|execve|execlp|execle|execvp))",
-"(.*( |\"|\'|\/)(chmod|chown|bash|cat)( |\"|\').*)"]
+	str_rules = [r"/(etc|usr|var|proc|dev|home|root)",
+r"(\.bash_history|\.bashrc|\.bash_profile|\.ssh|authorized_keys|rc\.d|cron\.d|\.conf|passwd)",
+r"/tmp",
+r"((void|int|long)\s*\(\*\))",
+r"(( |\"|\'|\/|;)(wget|curl|mail)( |\"|\'))",
+r"([0-9]{1,3}\.){3}[0-9]{1,3}",
+r"((((?:_POST|_GET|_REQUEST|GLOBALS)\[(?:.*?)\]\(\$(?:_POST|_GET|_REQUEST|GLOBALS)))|(((?:exec|base64_decode|edoced_46esab|eval|eval_r|system|proc_open|popen|curl_exec|curl_multi_exec|parse_ini_file|show_source|assert)\s*?\(\$(?:_POST|_GET|_REQUEST|GLOBALS)))|(((?:eval|eval_r|execute|ExecuteGlobal)\s*?\(?request))|((write|exec)\(request\.getParameter)|(((?:eval|eval_r|execute|ExecuteGlobal).*?request))|(SaveAs\(\s*?Server\.MapPath\(\s*?Request))",
+r"(disable_dynamic|AddType|x-httpd-php)",
+r"(( |\"|\'|\/)evil|( |\"|\'|\/|@)eval|shellcode|HTTP/1\.[1|0]|\* \* \*|( |\"|\'|\/)grep)",
+r"(#define\s*.*\s*(popen|system|exec|execl|execv|execve|execlp|execle|execvp))",
+r"(( |\"|\'|\/|\.|;|\|)(chmod|chown|bash|cat|export|useradd)( |\"|\'))",
+r"htons\((\d){2,5}\)|(\{((0x)?[0-9a-fA-F]{1,3},(\s)*){3}((0x)?[0-9a-fA-]{1,3})(\s)*\})",
+r"((\\x[0-9a-fA-F]{2}){3})|(\{((0x)?[0-9a-fA-F]{1,3},(\s)*){4,}((0x)?[0-9a-fA-]{1,3})(\s)*\})|(#define _[0-9a-fA-F]{32})",
+]
 	func_rules = []
 	open(str_rule_cfg,'w').write(json.dumps(str_rules))
 	open(func_rule_cfg,'w').write(json.dumps(func_rules))
@@ -188,7 +194,7 @@ def str_regex(filename,regex_pattern):
 	content = open(filename).readlines()
 	for i in range(len(content)):
 		line_content = content[i]
-		r = re.search(regex_pattern,line_content)
+		r = re.search(regex_pattern,line_content,re.IGNORECASE)
 		if r:
 			# line number starts from 1
 			# tmp = "\n"
@@ -202,7 +208,7 @@ def str_regex(filename,regex_pattern):
 			tmp += "#"*15 + "\n"
 			tmp += search_m_func_api(i,filename) + "\n"
 			tmp += "#"*15 + "\n"
-			tmp += str(r.group()) + "\n"
+			tmp += str(line_content) + "\n"
 			tmp +=  "#"*15 + "\n\n"
 			print tmp
 			open('log.txt','a').write(tmp)
@@ -376,10 +382,15 @@ def run_with_cflow(filename):
 			function_def[function_position]= function_name
 			function_call[function_position]= function_name
 		elif record:
+			
 			tmp = record.split(' ')
 			function_name,function_position = tmp[0],tmp[3].split(':')[1]
+			if filename == './p_170/src/pstree.c':
+				print function_name,function_position
 			function_call[function_position]= function_name
-
+	print filename
+	
+	
 	function_def = sorted(function_def.items(),key = lambda x:int(x[0]))
 	function_call = sorted(function_call.items(),key = lambda x:int(x[0]))
 
@@ -450,6 +461,7 @@ def run(folder_name):
 		the records of subfunctions for each function, if exists already,
 		then load from file
 	'''
+
 	if not os.path.exists(cache_path_reverse):
 		indexes_2 = reverse_indexes()
 		open(cache_path_reverse,'w').write(json.dumps(indexes_2))
@@ -470,7 +482,7 @@ if __name__ == '__main__':
 	write_rules()
 	load_rules()
 	#test()
-	for i in range(0,300):
+	for i in range(170,171):
 		if os.path.exists('./p_%s'%(str(i).rjust(3,'0'))):
 			run('./p_%s'%(str(i).rjust(3,'0')))
 			print "\n\n"

@@ -40,10 +40,11 @@ MIN_P = 0
 MAX_P = len(strs_rd)
 
 for i in xrange(MIN_P,MAX_P):
-	if i==95:
+        if not re.findall('\./p_(.*?)/',strs_rd[i]):
 		continue
 		
 	tmp = '''<div class="panel-heading">
+        
 			<h3 class="panel-title">工程 : P_'''+re.findall('\./p_(.*?)/',strs_rd[i])[0]+'''</h3>
 
 			</div>
@@ -62,7 +63,7 @@ for i in xrange(MIN_P,MAX_P):
 					复制结果
 				</button>
 				<div id="collapse'''+str(counts)+'''" class="panel-collapse collapse" aria-expanded="false" style="height: 0px;">
-					<div class="alert alert-info">文件路径 : <a href="http://10.138.66.217/f.php?f=runtime/'''+contents[2].strip()[2:]+'" target="_blank" >'+contents[2].strip()+'</a>'
+					<div class="alert alert-info">文件路径 : <a href="http://10.138.251.62/f.php?f=runtime/'''+contents[2].strip()[2:]+'" target="_blank" >'+contents[2].strip()+'</a>'
 			tmp +='''<br>
 						匹配规则 : '''+contents[1].strip()
 			tmp +='''<br>

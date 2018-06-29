@@ -1,11 +1,12 @@
 #!/usr/bin/env python
-
+# -*- coding: utf8 -*-
 import os
 import sys
 import json
 import re
 from copy import deepcopy
 from hashlib import md5
+#from sklearn.externals import joblib
 
 
 '''
@@ -36,6 +37,8 @@ func_rules = []
 scores = {}
 global_func_def = {}
 record_file = 'res'
+#global_model = joblib.load('ML/model.txt')
+
 
 a = open('runtime/res_2.txt').readlines()
 a = map(lambda x:x[2].strip() + '@' + './' + x[1] if x[1] else '', [x.split(',') for x in a])
@@ -43,9 +46,11 @@ while '' in a:
 	a.remove('')
 malicious_funcs = a
 
+
 #######    config  ends     #######
 
 def Cacu_value(func_state,strs_state):
+	print func_state,strs_state
 	score = 0
 	score += (func_state[0]&func_state[3]&(strs_state[0]|strs_state[1]))*1000
 	score += (func_state[2]&func_state[1]&strs_state[2])*600
@@ -66,28 +71,58 @@ def Cacu_value(func_state,strs_state):
 	score += strs_state[9]*10
 	return score
 
+
+def new_calc(final_state):
+	read = [0,4]                                 # read file / get sensetive info
+	sensetive_info = [2,6,7,8,9,13,14,18]        # sensetive dir/file/systeminfo
+	write = [1,4,15]                             # write file/system config/webshell
+	out = [3,4,11,12,15,17,18]          # output to socket/ip/network/webshell/tmp file
+	other = [4,5,15,16,18,19]                     		 # pick it by random
+
+	read_score = 0
+	sensetive_score = 0
+	write_score = 0
+	out_score = 0
+	other_score = 0
+
+
+	for i in read:
+		read_score += final_state[i] * 5
+	for i in sensetive_info:
+		sensetive_score += final_state[i] * 20
+	for i in write:
+		write_score += final_state[i] * 10
+	for i in out:
+		out_score += final_state[i] * 30
+	for i in other:
+		other_score += final_state[i] * 100
+
+	score = read_score * sensetive_score + write_score * sensetive_score + read_score * write_score + read_score * out_score + read_score * sensetive_score * out_score + write_score * out_score + read_score + sensetive_score + write_score + out_score + other_score
+
+	return score
+
+
+def my_calc(final_state):
+	global global_model
+	res = global_model.predict([final_state])[0]
+	return res
+
+
+
 def Deal_funcs(sub_funcs):
 
 	global func_rules
-	func_rules = [["read", "fread", "fgetc", "fgets","open","fopen"],
-	["write","fwrite", "fputc", "fputs", "fprintf","fscanf","sprintf"],
-	["tcgetattr"],
-	["send", "recv","connect","bind","socket","gethostbyname","recvfrom","inet_addr"],
-	["popen","system","exec","execl","execv","execve","execlp","execle","execvp"],
-	["ftruncate", "chmod"],
-	["ptrace","get_nprocs","opendir","readdir","lstat","getifaddrs","getlogin","getpwent","getuid","rename","getcwd","getenv"],
-	["ioctl"]
-	]
 
 	func_state=[0 for i in xrange(0,len(func_rules))]
 
 	for i in xrange(0,len(func_rules)):
-		if len(set(func_rules[i])&set(sub_funcs))>0:
-			func_state[i] = 1
+	
+		func_state[i] = len(set(func_rules[i])&set(sub_funcs))
 
 	return func_state
 
 def Main_deal(funcs_list, sub_funcs, strs_dict):
+	global func_rules
 	func_state={}
 	F={}
 	for i in xrange(0,len(funcs_list)):
@@ -97,11 +132,16 @@ def Main_deal(funcs_list, sub_funcs, strs_dict):
 			func_state[funcs] = Deal_funcs(sub_funcs[funcs])
 		else:
 			func_state[funcs] = [0 for i in xrange(0,len(func_rules))]
+		# print func_rules
 
+		# if (strs_dict.has_key(funcs)):
+		# 	F[funcs] = Cacu_value(func_state[funcs],strs_dict[funcs])
+		# else:
+		# 	F[funcs] = Cacu_value(func_state[funcs],[0 for i in xrange(len(str_rules))])
 		if (strs_dict.has_key(funcs)):
-			F[funcs] = Cacu_value(func_state[funcs],strs_dict[funcs])
+			F[funcs] = new_calc(func_state[funcs] + strs_dict[funcs])
 		else:
-			F[funcs] = Cacu_value(func_state[funcs],[0 for i in xrange(len(str_rules))])
+			F[funcs] = new_calc(func_state[funcs] + [0 for i in xrange(len(str_rules))])
 
 	result = sorted(F.items(),key=lambda x:int(x[1]),reverse=True)[0:3]
 
@@ -109,14 +149,11 @@ def Main_deal(funcs_list, sub_funcs, strs_dict):
 	highest_func = result[0][0]
 	highest_file_name = find_filename_by_func(highest_func)
 	highest_project_name = highest_file_name.split('/')[1]
-
-	tmp_res = highest_project_name + ':' + 'yes' + ',' + highest_file_name[2:] + ',' + highest_func.split('@')[0] + "\n"
+	if result[0][1] > 2000:
+		tmp_res = highest_project_name + ':' + 'yes' + ',' + highest_file_name[2:] + ',' + highest_func.split('@')[0] + "\n"
+	else:
+		tmp_res = highest_project_name + ':' + 'no,,' + "\n"
 	open('submit_tmp.txt','a').write(tmp_res)
-
-	# print func_state
-	# print 'closedir@./p_058/src/readdir.c' in sub_funcs
-	# print 'closedir@./p_058/src/readdir.c' in funcs_list 
-	# print sub_funcs
 
 
 	for func in funcs_list:
@@ -128,15 +165,17 @@ def Main_deal(funcs_list, sub_funcs, strs_dict):
 		else:
 			# no malicious string detected
 			my_state += [0 for i in range(len(str_rules))]
-
+ 
 		my_state = map(str,my_state)
 		file_name = find_filename_by_func(func)
 		project_name = file_name.split('/')[1]
 		tmp_res = project_name + ',' + func.split('@')[1][2:] + ',' + func.split('@')[0] + ',' + ','.join(my_state)
 		open('func_status.txt','a').write(tmp_res + "\n")
 
+		
 		if func in malicious_funcs:
 			open('malicious.txt','a').write(tmp_res + "\n")
+		
 
 	for func in result:
 		file_name = find_filename_by_func(func[0])
@@ -153,14 +192,6 @@ def Main_deal(funcs_list, sub_funcs, strs_dict):
 		print res
 		open(record_file,'a').write(res)
 
-	# elegant record
-	# func = result[0]
-	# file_name = find_filename_by_func(func[0])
-	# elegant_res = ''
-	# seq = filename.split('/')[1]
-	# elegant_res += 
-	# open('my_result.txt','a').write()
-
 
 def debug_print(msg):
 	if debug:
@@ -175,17 +206,26 @@ def write_rules():
 r"(\.bash_history|\.bashrc|\.bash_profile|\.ssh|authorized_keys|rc\.d|cron\.d|\.conf|passwd)",
 r"/tmp",
 r"((void|int|long)\s*\(\*\))",
-r"(( |\"|\'|\/|;)(wget|curl|mail)( |\"|\'))",
-r"([0-9]{1,3}\.){3}[0-9]{1,3}",
+r"(( |\"|\'|\/|;)(wget|curl|mail)( |\"|\'))|HTTP/1\.[1|0]",
+r"([0-9]{1,3}\.){3}[0-9]{1,3}|htons\((\d){2,5}\)",
 r"((((?:_POST|_GET|_REQUEST|GLOBALS)\[(?:.*?)\]\(\$(?:_POST|_GET|_REQUEST|GLOBALS)))|(((?:exec|base64_decode|edoced_46esab|eval|eval_r|system|proc_open|popen|curl_exec|curl_multi_exec|parse_ini_file|show_source|assert)\s*?\(\$(?:_POST|_GET|_REQUEST|GLOBALS)))|(((?:eval|eval_r|execute|ExecuteGlobal)\s*?\(?request))|((write|exec)\(request\.getParameter)|(((?:eval|eval_r|execute|ExecuteGlobal).*?request))|(SaveAs\(\s*?Server\.MapPath\(\s*?Request))",
 r"(disable_dynamic|AddType|x-httpd-php)",
-r"(( |\"|\'|\/)evil|( |\"|\'|\/|@)eval|shellcode|HTTP/1\.[1|0]|\* \* \*|( |\"|\'|\/)grep)",
 r"(#define\s*.*\s*(popen|system|exec|execl|execv|execve|execlp|execle|execvp))",
 r"(( |\"|\'|\/|\.|;|\|)(chmod|chown|bash|cat|export|useradd)( |\"|\'))",
-r"htons\((\d){2,5}\)|(\{((0x)?[0-9a-fA-F]{1,3},(\s)*){3}((0x)?[0-9a-fA-]{1,3})(\s)*\})",
-r"((\\x[0-9a-fA-F]{2}){3})|(\{((0x)?[0-9a-fA-F]{1,3},(\s)*){4,}((0x)?[0-9a-fA-]{1,3})(\s)*\})|(#define _[0-9a-fA-F]{32})",
+r"(\{((0x)?[0-9a-fA-F]{1,3},(\s)*){3}((0x)?[0-9a-fA-]{1,3})(\s)*\})",
+r"((\\x[0-9a-fA-F]{2}){3})|(\{((0x)?[0-9a-fA-F]{1,3},(\s)*){4,}((0x)?[0-9a-fA-]{1,3})(\s)*\})|(#define(\s)*_[0-9a-fA-F]{32})",
+r"(( |\"|\'|\/)evil|( |\"|\'|\/|@)eval|shellcode|\* \* \*|( |\"|\'|\/)grep)"
 ]
-	func_rules = []
+
+
+	func_rules = [["read", "fread", "fgetc", "fgets","open","fopen"],
+	["write","fwrite", "fputc", "fputs", "fprintf","fscanf","sprintf"],
+	["tcgetattr"],
+	["send", "recv","connect","bind","socket","gethostbyname","recvfrom","inet_addr"],
+	["popen","system","exec","execl","execv","execve","execlp","execle","execvp"],
+	["ftruncate", "chmod","ioctl","rename","putenv"],
+	["ptrace","get_nprocs","opendir","readdir","lstat","getifaddrs","getlogin","getpwent","getuid","getcwd","getenv"],
+	]
 	open(str_rule_cfg,'w').write(json.dumps(str_rules))
 	open(func_rule_cfg,'w').write(json.dumps(func_rules))
 
@@ -246,10 +286,8 @@ def handle_rules_string():
 
 				if not str_regex_status.has_key(real_func_name):
 					str_regex_status[real_func_name] = [0] * len(str_rules)
-				str_regex_status[real_func_name][i] = 1
-	# print "#"*15
-	# print str_regex_status
-	# print "#"*15
+				str_regex_status[real_func_name][i] += 1
+
 	open('log.txt','a').write('\n')
 	return str_regex_status
 
@@ -263,14 +301,7 @@ def substract_all_func():
 	for filename in global_func_def:
 		for i in range(len(global_func_def[filename])):
 			func = global_func_def[filename][i]
-			# if func[1] in all_func:
-			# 	print '[!] ' + func[1] + " is duplicated"
-			# 	# if a function name is dumplicated, add append the filename to that function
-			# 	all_func.append(func[1] + '@' + filename[2:])
-			# 	# update the function name in the global_func_def as well
-			# 	#print global_func_def[filename][i]
-			# 	global_func_def[filename][i][1] = func[1] + '@' + filename[2:]
-			# else:
+
 			all_func.append(func[1] + '@' + filename)
 
 	all_func = list(set(all_func))
@@ -403,7 +434,7 @@ def run_with_cflow(filename):
 			function_def[function_position]= function_name
 			function_call[function_position]= function_name
 
-		elif ' redefined' not in record and 'cflow:' not in record and  'missing ' not in record and record:
+		elif ' redefined' not in record and 'cflow:' not in record and  'missing ' not in record and 'unexpected ' not in record and record:
 
 			tmp = record.split(' ')
 			function_name,function_position = tmp[0],tmp[3].split(':')[1]
@@ -441,9 +472,6 @@ def run_with_cflow(filename):
 				function_call[function_position] = function_name
 				function_def[function_position]= function_name
 
-			# if 'names' in filename:
-			# 	print function_call
-			#  	sys.exit()
 			print 'redefined detected'
 		elif record:
 			print "unknown error: " + record
@@ -460,9 +488,7 @@ def run_with_cflow(filename):
 	debug_print(function_def)
 	debug_print(function_call)
 
-	# if 'pstree' in filename:
-	# 		print function_def
-	# 		sys.exit()
+	# print function_call
 	for func in function_call:
 		function_position,function_name = func
 		function_position = function_position.split('@')[0]
@@ -470,9 +496,6 @@ def run_with_cflow(filename):
 		offset_1 = (int(function_position) - int(content_offset)) if (int(function_position) - int(content_offset)) > 0  else 0
 		offset_2 = int(function_position) + int(content_offset)
 		content = file_content[offset_1:offset_2]
-		# if function_name == 'getlogin' and 'pstree.c' in filename:
-		# 	print 'ok'
-		# 	sys.exit()
 
 		m_func = search_m_func(function_def,function_position)
 		function_info = {'filename':filename,'line':int(function_position),'m_func':m_func,}
@@ -484,7 +507,7 @@ def run_with_cflow(filename):
 
 
 	global_func_def[filename] = function_def
-
+	print 'ok'
 
 
 def run(folder_name):
@@ -537,9 +560,6 @@ def run(folder_name):
 		indexes_2 = json.loads(open(cache_path_reverse).read())
 		debug_print(indexes_2)
 
-	# print indexes
-	# print 'closedir@./p_058/src/readdir.c' in indexes_2
-	# sys.exit()
 
 	'''
 	real handle here
@@ -557,14 +577,6 @@ if __name__ == '__main__':
 		if os.path.exists('./p_%s'%(str(i).rjust(3,'0'))):
 			run('./p_%s'%(str(i).rjust(3,'0')))
 			print "\n\n"
-		if os.path.exists('./mp_%s'%(str(i).rjust(3,'0'))):
-			run('./p_%s'%(str(i).rjust(3,'0')))
-			print "\n\n"
-			
-
-
-
-
-
-
-
+		# if os.path.exists('./mp_%s'%(str(i).rjust(3,'0'))):
+		# 	run('./mp_%s'%(str(i).rjust(3,'0')))
+		# 	print "\n\n"

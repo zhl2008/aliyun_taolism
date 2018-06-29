@@ -11,7 +11,7 @@ def check_path(filepath):
 		return True
 	sys.exit('[!] filepath:%s not exists'%filepath)
 
-wb = load_workbook("5.xlsx")
+wb = load_workbook("2.xlsx")
 print(wb.sheetnames)
 sheet_lee = wb.get_sheet_by_name("1")
 sheet_ins = wb.get_sheet_by_name("2")
@@ -35,7 +35,7 @@ for sheet in sheets:
 	for i in range(len(projects)):
 		if not i==0 and projects[i].value and vulnerables[i].value:
 			# pre handle
-			project = projects[i].value.strip()
+                        project = projects[i].value.strip().replace("_x000D_","")
 			vulnerable = vulnerables[i].value.strip()
 			if filepaths[i].value:
 				filepath = filepaths[i].value.strip()
